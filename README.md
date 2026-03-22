@@ -21,26 +21,37 @@ A small idempotent script that adds the missing MSS clamping rules to the `UBIOS
 | `fix-mss-clamping.sh` | `/data/fix-mss-clamping.sh` | The fix script (idempotent) |
 | `fix-mss-clamping.service` | `/etc/systemd/system/fix-mss-clamping.service` | Runs at boot after network is up |
 | `fix-mss-clamping.cron` | `/etc/cron.d/fix-mss-clamping` | Runs every 5 min to catch reprovisioning |
+| `deploy.sh` | — | Deploys to a gateway via SSH |
 
 ## Installation
 
 Install on **both** Site Magic endpoints (both gateways in the SD-WAN mesh).
 
 ```bash
+./deploy.sh <hostname>
+```
+
+For example:
+```bash
+./deploy.sh udm
+./deploy.sh udr7
+```
+
+Or manually:
+```bash
 # Copy the script
-cp fix-mss-clamping.sh /data/fix-mss-clamping.sh
-chmod +x /data/fix-mss-clamping.sh
+scp fix-mss-clamping.sh <hostname>:/data/fix-mss-clamping.sh
+ssh <hostname> chmod +x /data/fix-mss-clamping.sh
 
 # Install the systemd service (runs at boot)
-cp fix-mss-clamping.service /etc/systemd/system/
-systemctl daemon-reload
-systemctl enable fix-mss-clamping.service
+scp fix-mss-clamping.service <hostname>:/etc/systemd/system/
+ssh <hostname> "systemctl daemon-reload && systemctl enable fix-mss-clamping.service"
 
 # Install the cron job (catches reprovisioning)
-cp fix-mss-clamping.cron /etc/cron.d/fix-mss-clamping
+scp fix-mss-clamping.cron <hostname>:/etc/cron.d/fix-mss-clamping
 
 # Run it now
-/data/fix-mss-clamping.sh
+ssh <hostname> /data/fix-mss-clamping.sh
 ```
 
 ## Persistence
