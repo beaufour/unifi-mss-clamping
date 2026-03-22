@@ -2,11 +2,49 @@
 
 Workaround for a UniFi firmware bug where TCP MSS clamping rules are missing for Site Magic (SD-WAN) tunnel interfaces (`wgsts1000`).
 
-## The Problem
+## Use Case
 
-When using a Policy-Based Route (Traffic Route) to send VLAN traffic through a Site Magic SD-WAN tunnel, UniFi automatically adds TCP MSS clamping rules for `wgclt1` and `wgsrv1` interfaces, but **not** for `wgsts1000` (Site Magic). This causes:
+You have two UniFi sites connected via Site Magic (SD-WAN), and you want devices on a VLAN at Site A to use Site B's internet connection — for example, to appear with a different public IP or to access geo-restricted content.
 
-- Large TCP packets to exceed the tunnel MTU (1420), resulting in fragmentation failures
+```mermaid
+flowchart LR
+    subgraph site_a["Site A"]
+        device["Device on VLAN"]
+        gw_a["Gateway A"]
+    end
+
+    subgraph site_b["Site B"]
+        gw_b["Gateway B"]
+    end
+
+    internet(("Internet"))
+
+    device -- "1. Traffic" --> gw_a
+    gw_a -- "2. Site Magic tunnel" --> gw_b
+    gw_b -- "3. NAT + exit" --> internet
+
+    style internet fill:#e8f5e9,stroke:#43a047
+    style site_a fill:#e3f2fd,stroke:#1e88e5
+    style site_b fill:#fff3e0,stroke:#fb8c00
+```
+
+This is achieved by:
+1. Creating a VLAN at Site A for the devices you want to route
+2. Including that VLAN in the Site Magic mesh
+3. Creating a Traffic Route (Policy-Based Route) that sends traffic from the VLAN through the Site Magic tunnel to Site B
+4. Site B NATs the traffic and sends it out its own WAN
+
+## DNS Configuration
+
+When using a Traffic Route through Site Magic, you **must** set custom DNS servers on the VLAN's DHCP settings (e.g., `1.1.1.1` and `8.8.8.8`). Without this, DNS queries from devices on the VLAN will fail.
+
+This happens because the gateway creates a separate DNS resolver instance for PBR traffic, but that instance has no upstream DNS servers configured. Setting DNS explicitly on the VLAN bypasses this resolver entirely.
+
+## The MSS Clamping Bug
+
+UniFi automatically adds TCP MSS clamping rules for `wgclt1` and `wgsrv1` interfaces, but **not** for `wgsts1000` (Site Magic). Without MSS clamping, TCP connections negotiate a packet size based on the 1500 MTU LAN interface, but the Site Magic tunnel has a 1420 MTU. This causes:
+
+- Large TCP packets to exceed the tunnel MTU, resulting in fragmentation failures
 - Degraded performance for web browsing and downloads
 - Speed tests (e.g., fast.com) failing entirely
 
@@ -71,7 +109,3 @@ On UniFi OS 5.x, the root filesystem is an overlayfs with a persistent read-writ
 
 - UniFi Dream Machine (UDM) — firmware 5.0.16
 - UniFi Dream Router 7 (UDR7) — firmware 5.0.16
-
-## Related bug
-
-There is a secondary bug where the PBR-specific dnsmasq instance (`dnsmasq-wgsts1000`) has no upstream DNS servers configured, causing DNS to fail for all devices on the PBR'd VLAN. The workaround is to set custom DNS servers (e.g., 1.1.1.1, 8.8.8.8) in the VLAN's DHCP settings via the UniFi UI.
