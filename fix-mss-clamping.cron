@@ -1,0 +1,4 @@
+# Fix MSS clamping for Site Magic tunnel (UniFi bug workaround)
+# Boot is handled by fix-mss-clamping.service; this catches reprovisioning
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+*/5 * * * * root /data/fix-mss-clamping.sh
