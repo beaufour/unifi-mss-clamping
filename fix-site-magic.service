@@ -1,12 +1,12 @@
 [Unit]
-Description=Fix MSS clamping for Site Magic tunnel
+Description=Workarounds for UniFi Site Magic bugs (wgsts1000)
 Wants=network-online.target
 After=network-online.target
 
 [Service]
 Type=oneshot
 ExecStartPre=/bin/sleep 30
-ExecStart=/data/fix-mss-clamping.sh
+ExecStart=/data/fix-site-magic.sh
 Restart=on-failure
 RestartSec=10
 

@@ -12,19 +12,34 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo "Deploying to $HOST..."
 
+# Remove old fix-mss-clamping.* if present (renamed to fix-site-magic.*)
+ssh "$HOST" '
+    if [ -f /etc/systemd/system/fix-mss-clamping.service ]; then
+        systemctl disable fix-mss-clamping.service 2>/dev/null || true
+        rm -f /etc/systemd/system/fix-mss-clamping.service \
+              /etc/cron.d/fix-mss-clamping \
+              /data/fix-mss-clamping.sh
+    fi
+'
+
 # Copy the fix script
-scp "$SCRIPT_DIR/fix-mss-clamping.sh" "$HOST:/data/fix-mss-clamping.sh"
-ssh "$HOST" "chmod +x /data/fix-mss-clamping.sh"
+scp "$SCRIPT_DIR/fix-site-magic.sh" "$HOST:/data/fix-site-magic.sh"
+ssh "$HOST" "chmod +x /data/fix-site-magic.sh"
 
 # Install systemd service
-scp "$SCRIPT_DIR/fix-mss-clamping.service" "$HOST:/etc/systemd/system/fix-mss-clamping.service"
-ssh "$HOST" "systemctl daemon-reload && systemctl enable fix-mss-clamping.service"
+scp "$SCRIPT_DIR/fix-site-magic.service" "$HOST:/etc/systemd/system/fix-site-magic.service"
+ssh "$HOST" "systemctl daemon-reload && systemctl enable fix-site-magic.service"
 
 # Install cron job
-scp "$SCRIPT_DIR/fix-mss-clamping.cron" "$HOST:/etc/cron.d/fix-mss-clamping"
+scp "$SCRIPT_DIR/fix-site-magic.cron" "$HOST:/etc/cron.d/fix-site-magic"
 
 # Run it now
-ssh "$HOST" "/data/fix-mss-clamping.sh"
+ssh "$HOST" "/data/fix-site-magic.sh"
 
 echo "Done. Verifying:"
-ssh "$HOST" "iptables -t mangle -L UBIOS_FORWARD_TCPMSS -v -n | grep wgsts"
+ssh "$HOST" "
+    echo '--- MSS clamp rules ---'
+    iptables -t mangle -S UBIOS_FORWARD_TCPMSS | grep wgsts || echo '(none yet — interface may not be up)'
+    echo '--- per-route resolver ---'
+    cat /run/resolv.conf.d/wgsts1000 2>/dev/null || echo '(no resolver file yet)'
+"
